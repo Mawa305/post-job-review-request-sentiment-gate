@@ -1,0 +1,487 @@
+{
+  "name": "Post-Job Review Request with Sentiment Gate",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-complete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "806422b4-2f75-49c1-b737-bdd9e5d3e526",
+      "name": "Job Complete Trigger"
+    },
+    {
+      "parameters": {
+        "tableId": "reviews",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "job_id",
+              "fieldValue": "={{ $json.body.job_id }}"
+            },
+            {
+              "fieldId": "customer_name",
+              "fieldValue": "={{ $json.body.customer_name }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.body.email }}"
+            },
+            {
+              "fieldId": "technician_name",
+              "fieldValue": "={{ $json.body.technician_name }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "c2dbb811-ef1e-4595-bf3b-5e9c0806be66",
+      "name": "Log New Review Request",
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "How was your service today?",
+        "message": "=<p>Hi {{ $json.customer_name }},</p> <p>Thank you for choosing us! How was your recent service with {{ $json.technician_name }}?</p> <p>   <a href=\"https://YOUR_N8N_DOMAIN/webhook/review-response?job_id={{ $json.job_id }}&sentiment=positive\" style=\"background:#4CAF50;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;margin-right:10px;\">😊 Great!</a>   <a href=\"https://YOUR_N8N_DOMAIN/webhook/review-response?job_id={{ $json.job_id }}&sentiment=negative\" style=\"background:#f44336;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;\">😞 Not Great</a> </p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "5ddab554-df39-4a88-bb6f-6c1d2b1b17f9",
+      "name": "Send Feedback Request Email",
+      "retryOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account 3"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=Feedback email failed to send for job {{ $json.job_id }}, customer {{ $json.customer_name }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "82df740d-1cf6-4249-8c99-85add9af755f",
+      "name": "Alert: Feedback Email Failed",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "review-response",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        384
+      ],
+      "id": "2acf5408-d30e-4e88-af68-490a1777ac10",
+      "name": "Customer Response Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "reviews",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.query.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $json.query.sentiment }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "responded"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        224,
+        384
+      ],
+      "id": "6f85f904-b560-4916-a387-90f9fdff7f8b",
+      "name": "Update Sentiment",
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=Sentiment update failed for job_id {{ $json.query.job_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        480
+      ],
+      "id": "806398b0-aec8-45dc-8c03-0fc1ca68c015",
+      "name": "Alert: Sentiment Update Failed1",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "affa8bb1-f922-454c-b3bd-d47189cad01b",
+              "leftValue": "={{ $json.query.sentiment }}",
+              "rightValue": "positive",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        288
+      ],
+      "id": "31cd5913-0b16-4ce3-8539-f8091730e2cc",
+      "name": "Sentiment Gate"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Thanks for your feedback!",
+        "message": "=<p>Hi {{ $json.customer_name }},</p>  <p>Thank you so much for your positive feedback! We're glad you had a great experience with {{ $json.technician_name }}.</p>  <p>Would you mind sharing your experience publicly? It really helps our business grow.</p>  <p>   <a href=\"https://YOUR_GOOGLE_REVIEW_LINK\" style=\"background:#4285F4;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;\">⭐ Leave a Google Review</a> </p>  <p>Thank you again!</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        192
+      ],
+      "id": "6483fd55-7b9c-4cb1-83ae-eb3e54ca18d1",
+      "name": "Send Review Request Email",
+      "retryOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account 3"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚨 Negative feedback alert!  Customer: {{ $json.customer_name }} Job ID: {{ $json.job_id }} Technician: {{ $json.technician_name }}  Please follow up directly to resolve the issue.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        384
+      ],
+      "id": "c82f7ce6-c4a8-4d27-b390-3663d356d573",
+      "name": "Alert: Negative Feedback",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=Review request email failed for job {{ $json.job_id }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        432
+      ],
+      "id": "e3d5d281-4888-4b87-aeb6-8181991cec67",
+      "name": "Alert: Review Email Failed",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Thank you for your feedback!",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        192
+      ],
+      "id": "f71ffd24-e033-4795-8ccc-a4c696e9749e",
+      "name": "Confirm to Customer"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"queued\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "respond-job-queued",
+      "name": "Respond Job Queued"
+    }
+  ],
+  "connections": {
+    "Job Complete Trigger": {
+      "main": [
+        [
+          {
+            "node": "Log New Review Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log New Review Request": {
+      "main": [
+        [
+          {
+            "node": "Send Feedback Request Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Feedback Request Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Job Queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Feedback Email Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert: Feedback Email Failed": {
+      "main": [
+        [
+          {
+            "node": "Respond Job Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Response Trigger": {
+      "main": [
+        [
+          {
+            "node": "Update Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sentiment": {
+      "main": [
+        [
+          {
+            "node": "Sentiment Gate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Sentiment Update Failed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sentiment Gate": {
+      "main": [
+        [
+          {
+            "node": "Send Review Request Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Negative Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Review Request Email": {
+      "main": [
+        [
+          {
+            "node": "Confirm to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Review Email Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert: Negative Feedback": {
+      "main": [
+        [
+          {
+            "node": "Confirm to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert: Sentiment Update Failed1": {
+      "main": [
+        [
+          {
+            "node": "Confirm to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert: Review Email Failed": {
+      "main": [
+        [
+          {
+            "node": "Confirm to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "id": "",
+  "tags": []
+}
